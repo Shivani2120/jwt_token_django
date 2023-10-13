@@ -25,8 +25,7 @@ urlpatterns = [
     path("logout/", jwtapi_views.logout_user, name="logout"),
     path("register/", jwtapi_views.user_register_view, name="register"),
     path("profile/", profile_views.ProfileListeCreateView.as_view(), name="profile"),
-    path("post/", profile_views.PostListeCreateView.as_view(), name="post"),
-    path("post_view/<int:pk>/", profile_views.PostDetailView.as_view(), name="post_view"),
-    # path("profile_view/<int:pk>/", profile_views.ProfileDetailView.as_view(), name="profile_view"),
-    path("post_view/<int:pk>/post_comment", profile_views.CommentListeCreateView.as_view(), name="post_comment"),
+    path("posts/", profile_views.PostListeCreateView.as_view(), name="post"),
+    path("posts/<int:pk>/", profile_views.PostDetailView.as_view(), name="post_view"),
+    path("posts/<int:pk>/comment", profile_views.CommentListeCreateView.as_view(), name="comment"),
 ]

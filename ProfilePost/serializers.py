@@ -3,8 +3,12 @@ from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericRelation
 from .models import Post, Profile, Comment
+from django.urls import reverse
 
 class CommentSerializer(serializers.ModelSerializer):
+    object_id = serializers.StringRelatedField(read_only=True)
+    content_type = serializers.ReadOnlyField(source='auther.username')
+   
     class Meta:
         model = Comment
         fields = ['author', 'content', 'content_type', 'object_id', 'content_object']
@@ -23,13 +27,13 @@ class PostSerializer(serializers.ModelSerializer):
     def get_author_username(self, obj):
         return obj.author.username
 
-    # def get_comments(self, obj):
-    #     comments = Comment.objects.filter(content_type=obj)[:3]
-    #     request = self.context.get('request')
-    #     return {
-    #         "comments": CommentSerializer(comments, many=True).data,
-    #         "all_comment_link": request.build_absolute_uri(reverse('post_comment_list', kwargs={'object_id': obj.id}))
-    #     }
+    def get_comments(self, obj):
+        comments = Comment.objects.filter(content_type=obj)[:3]
+        request = self.context.get('request')
+        return {
+            "comments": CommentSerializer(comments, many=True).data,
+            "all_comment_link": request.build_absolute_uri(reverse('post_comment_list', kwargs={'object_id': obj.id}))
+        }
 
 class ProfileSerializer(serializers.ModelSerializer):
     user_username = serializers.SerializerMethodField()

@@ -1,4 +1,3 @@
-
 from django.shortcuts import render
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import User
@@ -12,6 +11,7 @@ from rest_framework import viewsets
 from rest_framework import serializers
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
+from django.contrib.contenttypes.models import ContentType
 # from .permissions import IsAdminOrReadOnly, IsOwnerOrReadonly
 # from django_filters.rest_framework import DjangoFilterBackend
 # from rest_framework import filters
@@ -20,8 +20,40 @@ class CommentListeCreateView(generics.ListCreateAPIView):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
 
-    def get_serializer_class(self):
-        return CommentSerializer
+    def get_queryset(self):
+        # Check if the user is authenticated
+        if self.request.user.is_authenticated:
+            # Get the ContentType instance for the Profile model
+            content_type = ContentType.objects.get_for_model(self.request.user.profile)
+
+            # Get the object_id for the user's profile
+            object_id = self.request.user.profile.id
+
+            # Return comments for the user's profile
+            return Comment.objects.filter(content_type=content_type, object_id=object_id)
+        else:
+            # Return an empty queryset or handle it based on your requirements
+            return Comment.objects.none()
+
+    def perform_create(self, serializer):
+        # Check if the user is authenticated
+        if self.request.user.is_authenticated:
+            # Get the ContentType instance for the Profile model
+            content_type = ContentType.objects.get_for_model(self.request.user.profile)
+
+            # Get the object_id for the user's profile
+            object_id = self.request.user.profile.id
+
+            # Check if the user has already added a comment on their profile
+            if Comment.objects.filter(content_type=content_type, object_id=object_id, author=self.request.user).exists():
+                raise serializers.ValidationError({'Message': 'You have already added a comment on your profile.'})
+
+            # Save the comment with the current user and profile
+            serializer.save(author=self.request.user, content_type=content_type, object_id=object_id)
+        else:
+            # Handle the case when the user is not authenticated
+            raise serializers.ValidationError({'Message': 'Authentication is required to add a comment.'})
+
 
 class PostListeCreateView(generics.ListCreateAPIView):
     queryset = Post.objects.all()
@@ -41,7 +73,6 @@ class PostDetailView(generics.RetrieveUpdateDestroyAPIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
             return Response({'Message': 'No Post Found'}, status=status.HTTP_404_NOT_FOUND)
-
 
 class ProfileListeCreateView(generics.ListCreateAPIView):
     queryset = Profile.objects.all()
