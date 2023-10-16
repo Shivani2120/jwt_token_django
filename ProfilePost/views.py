@@ -22,39 +22,50 @@ class CommentListeCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Check if the user is authenticated
         if self.request.user.is_staff:
-            # Get the ContentType instance for the Profile model
-            content_type = ContentType.objects.get_for_model(self.request.user.profile)
+            object_id = self.kwargs.get('object_id')
+            model_name = self.kwargs.get('model_name')
+            content_type = None
 
-            # Get the object_id for the user's profile
-            object_id = self.request.user.profile.id
+            if model_name == 'post':
+                model_class = Post
+            elif model_name == 'profile':
+                model_class = Profile
+            else:
+                # Handle other models if necessary
+                return Comment.objects.none()
 
-            # Return comments for the user's profile
-            return Comment.objects.filter(content_type=content_type, object_id=object_id)
+            content_type = ContentType.objects.get_for_model(model_class)
+            return Comment.objects.filter(content_type=content_type, object_id=object_id, author=self.request.user)
         else:
-            # Return an empty queryset or handle it based on your requirements
             return Comment.objects.none()
 
     def perform_create(self, serializer):
-        
-        # Check if the user is authenticated
         if self.request.user.is_staff:
-            # Get the ContentType instance for the Profile model
-            content_type = ContentType.objects.get_for_model(self.request.user.profile)
+            object_id = self.kwargs.get('object_id')
+            model_name = self.kwargs.get('model_name')
+            content_type = None
 
-            # Get the object_id for the user's profile
-            object_id = self.request.user.profile.id
+            if model_name == 'post':
+                model_class = Post
+            elif model_name == 'profile':
+                model_class = Profile
+            else:
+                # Handle other models if necessary
+                raise serializers.ValidationError({'Message': 'Invalid model_name'})
 
-            # Check if the user has already added a comment on their profile
+            content_type = ContentType.objects.get_for_model(model_class)
+
             if Comment.objects.filter(content_type=content_type, object_id=object_id).exists():
-                raise serializers.ValidationError({'Message': 'You have already added a comment on your profile.'})
+                raise serializers.ValidationError({'Message': 'You have already added a comment.'})
 
-            # Save the comment with the current user and profile
-            serializer.save(content_type=content_type, object_id=object_id)
+            serializer.save(author=self.request.user, content_type=content_type, object_id=object_id)
         else:
             # Handle the case when the user is not authenticated
             raise serializers.ValidationError({'Message': 'Authentication is required to add a comment.'})
+
+    def get_serializer_class(self):
+        return CommentSerializer
 
 class PostListeCreateView(generics.ListCreateAPIView):
     queryset = Post.objects.all()

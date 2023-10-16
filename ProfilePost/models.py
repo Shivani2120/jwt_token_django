@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 
 class Comment(models.Model):
     content = models.TextField()
-
+    author = models.ForeignKey(User, on_delete=models.CASCADE)
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     object_id = models.PositiveIntegerField()
     content_object = GenericForeignKey()

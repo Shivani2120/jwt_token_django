@@ -9,10 +9,11 @@ class CommentSerializer(serializers.ModelSerializer):
     object_id = serializers.StringRelatedField(read_only=True)
     content_type = serializers.SerializerMethodField()
     content_object = serializers.SerializerMethodField()
+    author = serializers.ReadOnlyField(source='author.username')
 
     class Meta:
         model = Comment
-        fields = ['content', 'content_type', 'object_id', 'content_object']
+        fields = ['author', 'content', 'content_type', 'object_id', 'content_object']
 
     def get_content_type(self, obj):
         return ContentType.objects.get_for_model(obj.content_object).model
@@ -20,29 +21,41 @@ class CommentSerializer(serializers.ModelSerializer):
     def get_content_object(self, obj):
         return str(obj.content_object)
 
-class BaseSerializerWithComments(serializers.ModelSerializer):
-    comments = serializers.SerializerMethodField()
 
-    def get_comments(self, obj):
-        content_type = ContentType.objects.get_for_model(obj)
-        comments = Comment.objects.filter(content_type=content_type, object_id=obj.pk)
-        request = self.context.get('request')
-        return {
-            "comments": CommentSerializer(comments, many=True).data,
-            "all_comment_link": request.build_absolute_uri(reverse('comment_list', kwargs={'object_id': obj.pk}))
-        }
-
-class PostSerializer(BaseSerializerWithComments):
+class PostSerializer(serializers.ModelSerializer):
     author_username = serializers.ReadOnlyField(source='author.username')
+    comments = serializers.SerializerMethodField()
 
     class Meta:
         model = Post
         fields = ['author', 'author_username', 'title', 'body', 'comments']
 
-class ProfileSerializer(BaseSerializerWithComments):
+    def get_comments(self, obj):
+        # Query comments based on the Post instance's primary key
+        comments = Comment.objects.filter(content_type=ContentType.objects.get_for_model(obj), object_id=obj.pk)
+        request = self.context.get('request')
+       
+        all_comment_link = request.build_absolute_uri(reverse('comment_list', kwargs={'model_name': 'post', 'object_id': obj.pk}))
+        return {
+            "comments": CommentSerializer(comments, many=True).data,
+            "all_comment_link": all_comment_link
+        }
+
+class ProfileSerializer(serializers.ModelSerializer):
     user_username = serializers.ReadOnlyField(source='user.username')
+    comments = serializers.SerializerMethodField()
 
     class Meta:
         model = Profile
         fields = ['user', 'user_username', 'about', 'comments']
+
+    def get_comments(self, obj):
+        # Query comments based on the Post instance's primary key
+        comments = Comment.objects.filter(content_type=ContentType.objects.get_for_model(obj), object_id=obj.pk)
+        request = self.context.get('request')
+        all_comment_link = request.build_absolute_uri(reverse('comment_list', kwargs={'model_name': 'profile', 'object_id': obj.pk}))
+        return {
+            "comments": CommentSerializer(comments, many=True).data,
+            "all_comment_link": all_comment_link
+        }
 
