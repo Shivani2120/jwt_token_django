@@ -12,17 +12,18 @@ from rest_framework import serializers
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from django.contrib.contenttypes.models import ContentType
-# from .permissions import IsAdminOrReadOnly, IsOwnerOrReadonly
-# from django_filters.rest_framework import DjangoFilterBackend
-# from rest_framework import filters
+from django.http import JsonResponse
+from rest_framework.authtoken.models import Token
+from django.contrib.auth import authenticate
 
 class CommentListeCreateView(generics.ListCreateAPIView):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         # Check if the user is authenticated
-        if self.request.user.is_authenticated:
+        if self.request.user.is_staff:
             # Get the ContentType instance for the Profile model
             content_type = ContentType.objects.get_for_model(self.request.user.profile)
 
@@ -36,8 +37,9 @@ class CommentListeCreateView(generics.ListCreateAPIView):
             return Comment.objects.none()
 
     def perform_create(self, serializer):
+        
         # Check if the user is authenticated
-        if self.request.user.is_authenticated:
+        if self.request.user.is_staff:
             # Get the ContentType instance for the Profile model
             content_type = ContentType.objects.get_for_model(self.request.user.profile)
 
@@ -45,19 +47,18 @@ class CommentListeCreateView(generics.ListCreateAPIView):
             object_id = self.request.user.profile.id
 
             # Check if the user has already added a comment on their profile
-            if Comment.objects.filter(content_type=content_type, object_id=object_id, author=self.request.user).exists():
+            if Comment.objects.filter(content_type=content_type, object_id=object_id).exists():
                 raise serializers.ValidationError({'Message': 'You have already added a comment on your profile.'})
 
             # Save the comment with the current user and profile
-            serializer.save(author=self.request.user, content_type=content_type, object_id=object_id)
+            serializer.save(content_type=content_type, object_id=object_id)
         else:
             # Handle the case when the user is not authenticated
             raise serializers.ValidationError({'Message': 'Authentication is required to add a comment.'})
 
-
 class PostListeCreateView(generics.ListCreateAPIView):
     queryset = Post.objects.all()
-    serializer_class = PostSerializer
+    serializer_class = PostSerializer(queryset, many=True)
 
     def get_serializer_class(self):
         return PostSerializer
@@ -81,55 +82,43 @@ class ProfileListeCreateView(generics.ListCreateAPIView):
     def get_serializer_class(self):
         return ProfileSerializer
 
-# class ProfileDetailView(generics.RetrieveUpdateDestroyAPIView):
-#     queryset = Profile.objects.all()
-#     serializer_class = ProfileSerializer
+class ProfileDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Profile.objects.all()
+    serializer_class = ProfileSerializer
     
-#     def retrieve(self, request, *args, **kwargs):
-#         instance = self.get_object()
-#         serializer = self.get_serializer(instance)
-#         if instance:
-#             return Response(serializer.data, status=status.HTTP_200_OK)
-#         else:
-#             return Response({'Message': 'No Profile Found'}, status=status.HTTP_404_NOT_FOUND)
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        if instance:
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        else:
+            return Response({'Message': 'No Profile Found'}, status=status.HTTP_404_NOT_FOUND)
 
+class CommentDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Comment.objects.all()
+    serializer_class = CommentSerializer
 
-# def post_comment(request, instance, context):
-#     if request.method == 'POST':
-#         form = CommentForm(request.POST)
-#         if form.is_valid():
-#             author = form.cleaned_data['author']
-#             content = form.cleaned_data['content']
+    def get_object(self):
+        comment_id = self.kwargs.get('comment_id')
+        comment = get_object_or_404(Comment, id=comment_id)
+        
+        content_type_model = comment.content_type.model_class()
+        object_id = comment.object_id
 
-#             Comment.objects.create(content_object=instance, author=author, content=content)
-           
-#     else:
-#         form = CommentForm()    
-#     context['form'] = form
+        related_object = get_object_or_404(content_type_model, id=object_id)
 
+        if related_object.author != self.request.user:
+            raise serializers.ValidationError({"Message": "You are not authorized to perform this action"}, status=status.HTTP_401_UNAUTHORIZED)
 
-# def post(request):
-#     post = get_object_or_404(Post)
-#     comments = post.comments.all()
+        return comment
 
-#     context = {
-#         'post': post,
-#         'comments': comments,
-#     }
-#     post_comment(request, post, context)
-#     return render(request, 'post.html', context)
+    def delete(self, request, *args, **kwargs):
+        comment = self.get_object()
 
+        return super().delete(request, *args, **kwargs)
 
-# def profile(request):
-    # user = get_object_or_404(User)
-    # profile = get_object_or_404(Profile, user=user)
-   
-    # comments = profile.comments.all()
+    def put(self, request, *args, **kwargs):
+        comment = self.get_object()
+
+        return super().put(request, *args, **kwargs)
     
-    # context = {
-    #     'user': user,
-    #     'profile': profile,
-    #     'comments': comments,
-    # }
-    # post_comment(request, profile, context)
-    # return render(request, 'profile.html', context)

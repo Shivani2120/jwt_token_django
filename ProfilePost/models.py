@@ -4,7 +4,6 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth.models import User
 
 class Comment(models.Model):
-    author = models.CharField(max_length=50)
     content = models.TextField()
 
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)

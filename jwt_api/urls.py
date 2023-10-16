@@ -24,8 +24,10 @@ urlpatterns = [
     path("login/", obtain_auth_token, name="login"),
     path("logout/", jwtapi_views.logout_user, name="logout"),
     path("register/", jwtapi_views.user_register_view, name="register"),
-    path("profile/", profile_views.ProfileListeCreateView.as_view(), name="profile"),
+    path("profiles/", profile_views.ProfileListeCreateView.as_view(), name="profile"),
+    path("profiles/<int:pk>/", profile_views.ProfileDetailView.as_view(), name="profile_view"),
     path("posts/", profile_views.PostListeCreateView.as_view(), name="post"),
     path("posts/<int:pk>/", profile_views.PostDetailView.as_view(), name="post_view"),
-    path("posts/<int:pk>/comment", profile_views.CommentListeCreateView.as_view(), name="comment"),
+    path("comment_list/<int:object_id>", profile_views.CommentListeCreateView.as_view(), name="comment_list"),
+    path("comment_detail/<str:model_name>/<int:object_id>/comment/<int:comment_id>/", profile_views.CommentDetailView.as_view(), name="comment_detail"),
 ]
